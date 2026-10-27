@@ -1,4 +1,4 @@
-면학<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -679,6 +679,7 @@
 
         // Admin authentication status & dynamic password management
         let isAdminLoggedIn = false;
+        // 저장되어 있던 비밀번호를 사용하거나, 없을 경우 기본 '1234' 사용
         let adminPassword = localStorage.getItem('geumchon_admin_pw') || "1234";
 
         // UI Modal Control
@@ -722,7 +723,7 @@
             document.getElementById('custom-modal').classList.add('hidden');
         }
 
-        // 교사 관리자 모드 비밀번호 입력 프롬프트
+        // 교사 관리자 모드 비밀번호 입력 프롬프트 (단순 인증 처리)
         function requestAdminAuth() {
             if (isAdminLoggedIn) {
                 switchTab('admin');
@@ -748,6 +749,7 @@
             }, 100);
         }
 
+        // 초기 비밀번호 확인 및 변경 유도 로직을 제거하고, 설정된 비밀번호 검증만 수행
         function verifyAdminPassword() {
             const pwInput = document.getElementById('admin-auth-pw');
             const pw = pwInput ? pwInput.value.trim() : '';
@@ -756,21 +758,12 @@
                 isAdminLoggedIn = true;
                 closeModal();
                 switchTab('admin');
-
-                if (adminPassword === "1234") {
-                    setTimeout(() => {
-                        showModal(
-                            '⚠️ 비밀번호 변경 권장',
-                            '현재 초기 비밀번호(<b>1234</b>)를 사용 중입니다.<br>보안을 위해 관리자 우측 상단의 <span class="text-amber-600 font-bold">[비밀번호 변경]</span> 버튼을 통해 새로운 비밀번호로 설정해 주세요.'
-                        );
-                    }, 400);
-                }
             } else {
                 showModal('인증 실패', '비밀번호가 올바르지 않습니다.');
             }
         }
 
-        // 교사 관리자 비밀번호 변경 모달 오픈
+        // 교사 관리자 비밀번호 변경 모달 오픈 (선택적으로 원할 때만 가능)
         function openChangePasswordModal() {
             document.getElementById('modal-title').textContent = '🔒 관리자 비밀번호 변경';
             document.getElementById('modal-message').innerHTML = `
@@ -803,6 +796,7 @@
             }, 100);
         }
 
+        // 비밀번호 변경 실행 및 브라우저 영구 저장(localStorage)
         function executePasswordChange() {
             const currentPw = document.getElementById('pw-current')?.value.trim();
             const newPw = document.getElementById('pw-new')?.value.trim();
@@ -828,11 +822,12 @@
                 return;
             }
 
+            // 비밀번호 변경 적용 및 브라우저에 저장
             adminPassword = newPw;
             localStorage.setItem('geumchon_admin_pw', newPw);
 
             closeModal();
-            showModal('🔑 비밀번호 변경 완료', '관리자 비밀번호가 성공적으로 변경되었습니다.<br>다음 로그인 시 변경된 비밀번호를 사용해주세요.');
+            showModal('🔑 비밀번호 변경 완료', '관리자 비밀번호가 성공적으로 변경되었습니다.<br>다음 로그인 시에는 변경한 비밀번호로 바로 로그인하실 수 있습니다.');
         }
 
         function logoutAdmin() {
@@ -1751,28 +1746,21 @@
             }
         }
 
-        // CSV/엑셀 다운로드 함수 (요청 항목 5개 개별 컬럼 구성 적용)
+        // CSV/엑셀 다운로드 함수
         function downloadCSV() {
-            // CSV 헤더 정의 (요청 항목 순서대로 구성)
-            // 1. 날짜 | 2. 시간/타임 | 3. 학생 이름 | 4. 학번 | 5. 상담 분야 | 6. 상담/고민 내용 | 7. 상담 상태 | 8. 신청일시
             let csv = '\uFEFF날짜,시간/타임,학생 이름,학번,상담 분야,상담/고민 내용,상담 상태,신청일시\n';
             
             reservations.forEach(r => {
-                // 시간/타임 텍스트 매핑 (예: "점심 (13:10 ~ 13:40)")
                 const slotObj = TIME_SLOTS.find(s => s.id === r.timeSlot);
                 const timeLabel = slotObj ? slotObj.label : r.timeSlot;
                 
-                // 고민내용 내 큰따옴표(") 및 줄바꿈 처리 (CSV 포맷 깨짐 방지)
                 const cleanQuestion = `"${r.question.replace(/"/g, '""')}"`;
                 const cleanName = `"${r.studentName.replace(/"/g, '""')}"`;
-                
                 const statusStr = r.status === 'completed' ? '상담 완료' : '상담 대기';
 
-                // 행 데이터 결합
                 csv += `${r.date},"${timeLabel}",${cleanName},${r.studentId},"${r.category}",${cleanQuestion},${statusStr},${r.createdAt}\n`;
             });
 
-            // 교사 직접 입력(1~7교시) 데이터도 포함
             if (periodReservations.length > 0) {
                 periodReservations.forEach(pr => {
                     const cleanMemo = `"${pr.memo.replace(/"/g, '""')}"`;
