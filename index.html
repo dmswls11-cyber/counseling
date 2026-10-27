@@ -627,6 +627,23 @@
         // Custom Blocked Slots list managed by admin teacher [{ date: 'YYYY-MM-DD', slot: 'morning' | 'all_day' }]
         let customBlockedSlots = [];
 
+        // 마감 상태 localStorage 저장 및 로드 함수
+        function saveBlockedState() {
+            localStorage.setItem('geumchon_blocked_weeks', JSON.stringify(blockedWeeks));
+            localStorage.setItem('geumchon_custom_blocked_slots', JSON.stringify(customBlockedSlots));
+        }
+
+        function loadBlockedState() {
+            try {
+                const savedWeeks = localStorage.getItem('geumchon_blocked_weeks');
+                const savedSlots = localStorage.getItem('geumchon_custom_blocked_slots');
+                if (savedWeeks) blockedWeeks = JSON.parse(savedWeeks);
+                if (savedSlots) customBlockedSlots = JSON.parse(savedSlots);
+            } catch (e) {
+                console.error('Failed to load blocked state:', e);
+            }
+        }
+
         // Additional Class Period Reservations (1~7 교시 교사 직접 입력 데이터)
         let periodReservations = [
             {
@@ -843,6 +860,9 @@
                 return;
             }
 
+            // 최신 마감 상태 로드
+            loadBlockedState();
+
             ['apply', 'status', 'admin'].forEach(id => {
                 const section = document.getElementById(`tab-${id}`);
                 const navBtn = document.getElementById(`nav-${id}`);
@@ -861,6 +881,10 @@
                 activeBtn.classList.remove('text-gray-600');
             }
 
+            if (tabId === 'apply') {
+                renderDatePickerCalendar();
+                if (selectedConsultDate) renderTimeSlots(selectedConsultDate);
+            }
             if (tabId === 'status') searchMyReservations();
             if (tabId === 'admin') renderAdminDashboard();
         }
@@ -1384,6 +1408,7 @@
             const endDate = `${year}-${String(month).padStart(2, '0')}-${String(endDay).padStart(2, '0')}`;
 
             blockedWeeks.push({ year, month, week, startDate, endDate });
+            saveBlockedState(); // 로컬 저장소에 반영
             renderBlockedWeeksTags();
             renderDatePickerCalendar();
             renderAdminCalendar();
@@ -1392,6 +1417,7 @@
 
         function removeWeeklyBlock(index) {
             blockedWeeks.splice(index, 1);
+            saveBlockedState(); // 로컬 저장소에 반영
             renderBlockedWeeksTags();
             renderDatePickerCalendar();
             renderAdminCalendar();
@@ -1441,6 +1467,7 @@
             }
 
             customBlockedSlots.push({ date: dateInput, slot: slotSelect });
+            saveBlockedState(); // 로컬 저장소에 반영
             renderBlockedSlotsTags();
             renderDatePickerCalendar();
             renderAdminCalendar();
@@ -1449,6 +1476,7 @@
 
         function removeCustomSlotBlock(dateStr, slotId) {
             customBlockedSlots = customBlockedSlots.filter(b => !(b.date === dateStr && b.slot === slotId));
+            saveBlockedState(); // 로컬 저장소에 반영
             renderBlockedSlotsTags();
             renderDatePickerCalendar();
             renderAdminCalendar();
@@ -1783,6 +1811,9 @@
             const baseUrl = window.location.origin + window.location.pathname;
             document.getElementById('url-student-link').value = baseUrl;
             document.getElementById('url-admin-link').value = baseUrl + '?mode=admin';
+
+            // 저장된 마감 데이터 복원
+            loadBlockedState();
 
             updateWeekSelectOptions();
             renderDatePickerCalendar();
