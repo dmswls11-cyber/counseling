@@ -627,10 +627,36 @@
         // Custom Blocked Slots list managed by admin teacher [{ date: 'YYYY-MM-DD', slot: 'morning' | 'all_day' }]
         let customBlockedSlots = [];
 
-        // 마감 상태 localStorage 저장 및 로드 함수
+        // BroadcastChannel 및 실시간 이벤트 채널 설정 (다중 탭/창 및 동일 페이지 간 실시간 동기화 지원)
+        let syncChannel;
+        if (typeof BroadcastChannel !== 'undefined') {
+            syncChannel = new BroadcastChannel('geumchon_blocked_state_channel');
+            syncChannel.onmessage = function(e) {
+                if (e.data && e.data.type === 'BLOCKED_STATE_UPDATED') {
+                    onBlockedStateChanged();
+                }
+            };
+        }
+
+        // storage 이벤트를 통한 브라우저 탭 간 실시간 변경 감지
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'geumchon_blocked_weeks' || e.key === 'geumchon_custom_blocked_slots') {
+                onBlockedStateChanged();
+            }
+        });
+
+        // 마감 상태 localStorage 저장 및 로드, 실시간 동기화 브로드캐스트 함수
         function saveBlockedState() {
             localStorage.setItem('geumchon_blocked_weeks', JSON.stringify(blockedWeeks));
             localStorage.setItem('geumchon_custom_blocked_slots', JSON.stringify(customBlockedSlots));
+            
+            // 동일 페이지 내부 UI 즉시 갱신
+            onBlockedStateChanged();
+
+            // 다른 탭/창으로 마감 변경 이벤트 전파
+            if (syncChannel) {
+                syncChannel.postMessage({ type: 'BLOCKED_STATE_UPDATED' });
+            }
         }
 
         function loadBlockedState() {
@@ -641,6 +667,21 @@
                 if (savedSlots) customBlockedSlots = JSON.parse(savedSlots);
             } catch (e) {
                 console.error('Failed to load blocked state:', e);
+            }
+        }
+
+        // 마감 상태가 변경되었을 때 학생 신청 화면 및 달력을 즉시 Re-render하는 핵심 실시간 반영 함수
+        function onBlockedStateChanged() {
+            loadBlockedState();
+            renderDatePickerCalendar();
+            if (selectedConsultDate) {
+                renderTimeSlots(selectedConsultDate);
+            }
+            // 교사 모드 화면도 활성화되어 있다면 함께 갱신
+            if (isAdminLoggedIn) {
+                renderBlockedWeeksTags();
+                renderBlockedSlotsTags();
+                renderAdminCalendar();
             }
         }
 
@@ -766,7 +807,7 @@
             }, 100);
         }
 
-        // 초기 비밀번호 확인 및 변경 유도 로직을 제거하고, 설정된 비밀번호 검증만 수행
+        // 비밀번호 검증
         function verifyAdminPassword() {
             const pwInput = document.getElementById('admin-auth-pw');
             const pw = pwInput ? pwInput.value.trim() : '';
@@ -780,7 +821,7 @@
             }
         }
 
-        // 교사 관리자 비밀번호 변경 모달 오픈 (선택적으로 원할 때만 가능)
+        // 교사 관리자 비밀번호 변경 모달 오픈
         function openChangePasswordModal() {
             document.getElementById('modal-title').textContent = '🔒 관리자 비밀번호 변경';
             document.getElementById('modal-message').innerHTML = `
@@ -839,7 +880,6 @@
                 return;
             }
 
-            // 비밀번호 변경 적용 및 브라우저에 저장
             adminPassword = newPw;
             localStorage.setItem('geumchon_admin_pw', newPw);
 
@@ -997,6 +1037,7 @@
         function renderDatePickerCalendar() {
             document.getElementById('picker-month-title').textContent = `${pickerYear}년 ${pickerMonth + 1}월`;
             const grid = document.getElementById('picker-calendar-grid');
+            if (!grid) return;
             grid.innerHTML = '';
 
             const firstDay = new Date(pickerYear, pickerMonth, 1).getDay();
@@ -1386,6 +1427,7 @@
             const year = document.getElementById('admin-block-year').value;
             const month = document.getElementById('admin-block-month').value;
             const weekSelect = document.getElementById('admin-block-week');
+            if (!weekSelect) return;
             weekSelect.innerHTML = '';
 
             for (let w = 1; w <= 5; w++) {
@@ -1408,19 +1450,13 @@
             const endDate = `${year}-${String(month).padStart(2, '0')}-${String(endDay).padStart(2, '0')}`;
 
             blockedWeeks.push({ year, month, week, startDate, endDate });
-            saveBlockedState(); // 로컬 저장소에 반영
-            renderBlockedWeeksTags();
-            renderDatePickerCalendar();
-            renderAdminCalendar();
+            saveBlockedState(); // 로컬 저장소 및 실시간 동기화 전파
             showModal('주차 마감 처리', `${year}년 ${month}월 ${week}주차가 성공적으로 마감 처리되었습니다.`);
         }
 
         function removeWeeklyBlock(index) {
             blockedWeeks.splice(index, 1);
-            saveBlockedState(); // 로컬 저장소에 반영
-            renderBlockedWeeksTags();
-            renderDatePickerCalendar();
-            renderAdminCalendar();
+            saveBlockedState(); // 로컬 저장소 및 실시간 동기화 전파
             showModal('마감 해제', '해당 주차 마감이 해제되었습니다.');
         }
 
@@ -1467,19 +1503,13 @@
             }
 
             customBlockedSlots.push({ date: dateInput, slot: slotSelect });
-            saveBlockedState(); // 로컬 저장소에 반영
-            renderBlockedSlotsTags();
-            renderDatePickerCalendar();
-            renderAdminCalendar();
+            saveBlockedState(); // 로컬 저장소 및 실시간 동기화 전파
             showModal('시간대 마감 성공', `${dateInput} [${slotLabel}] 시간대가 상담 마감 처리되었습니다.`);
         }
 
         function removeCustomSlotBlock(dateStr, slotId) {
             customBlockedSlots = customBlockedSlots.filter(b => !(b.date === dateStr && b.slot === slotId));
-            saveBlockedState(); // 로컬 저장소에 반영
-            renderBlockedSlotsTags();
-            renderDatePickerCalendar();
-            renderAdminCalendar();
+            saveBlockedState(); // 로컬 저장소 및 실시간 동기화 전파
             showModal('마감 해제', `${dateStr} 시간대 마감이 해제되었습니다.`);
         }
 
@@ -1607,6 +1637,7 @@
         function renderAdminCalendar() {
             document.getElementById('admin-cal-month-title').textContent = `${adminYear}년 ${adminMonth + 1}월`;
             const grid = document.getElementById('admin-calendar-days-grid');
+            if (!grid) return;
             grid.innerHTML = '';
 
             const firstDay = new Date(adminYear, adminMonth, 1).getDay();
@@ -1812,7 +1843,7 @@
             document.getElementById('url-student-link').value = baseUrl;
             document.getElementById('url-admin-link').value = baseUrl + '?mode=admin';
 
-            // 저장된 마감 데이터 복원
+            // 저장된 마감 데이터 복원 및 UI 반영
             loadBlockedState();
 
             updateWeekSelectOptions();
