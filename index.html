@@ -638,6 +638,9 @@
         let tempCustomBlockedSlots = [];
         let hasUnsavedChanges = false;
 
+        // Auto Polling Timer Interval Reference
+        let autoPollingTimer = null;
+
         // BroadcastChannel 및 실시간 이벤트 채널 설정
         let syncChannel;
         if (typeof BroadcastChannel !== 'undefined') {
@@ -661,11 +664,18 @@
         // ==========================================
 
         // API 요청 및 상태 로딩 시 강력한 캐시 방지(Cache Busting / 타임스탬프) 적용
-        function fetchLatestStateWithCacheBusting() {
+        function fetchLatestStateWithCacheBusting(endpointUrl = null) {
             try {
-                // 모바일 웹 환경의 강력한 HTTP/디스크 캐시 방지를 위한 타임스탬프 및 헤더 시뮬레이션
-                const cacheBusterKey = `_t=${Date.now()}&_r=${Math.random().toString(36).substring(2, 9)}`;
-                
+                // 모바일 웹 브라우저 캐시 무효화를 위한 URL 타임스탬프 파라미터 생성 (?t=1690000000000)
+                const timestamp = Date.now();
+                const cacheBusterParam = `?t=${timestamp}&_r=${Math.random().toString(36).substring(2, 9)}`;
+
+                // 백엔드 API 요청이 필요한 경우 캐시 무효화 주소 예시
+                if (endpointUrl) {
+                    const cacheBustUrl = endpointUrl + (endpointUrl.includes('?') ? '&' : '?') + `t=${timestamp}`;
+                    // fetch(cacheBustUrl, { headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' } })
+                }
+
                 const savedWeeks = localStorage.getItem('geumchon_blocked_weeks');
                 const savedSlots = localStorage.getItem('geumchon_custom_blocked_slots');
                 const savedReservations = localStorage.getItem('geumchon_reservations');
@@ -686,11 +696,29 @@
             }
         }
 
-        // 모바일 탭 상태 감지(Visibility Change & Window Focus)
-        // 모바일 사용자가 브라우저 탭을 다시 열거나, 앱 전환 후 화면을 활성화할 때 최신 달력 데이터 자동 재조회(Auto Refetch)
+        // 3초~5초 주기적 자동 갱신 (Polling) 설정
+        function startAutoPolling(intervalMs = 4000) {
+            stopAutoPolling();
+            autoPollingTimer = setInterval(() => {
+                refetchMobileCalendarData();
+            }, intervalMs);
+        }
+
+        function stopAutoPolling() {
+            if (autoPollingTimer) {
+                clearInterval(autoPollingTimer);
+                autoPollingTimer = null;
+            }
+        }
+
+        // 모바일 탭 상태 감지 (visibilitychange 이벤트 및 window focus)
+        // 학생이 스마트폰 화면을 껐다 켜거나 다른 앱 다녀왔을 때 즉시 최신 데이터를 불러옴
         document.addEventListener('visibilitychange', function() {
             if (document.visibilityState === 'visible') {
                 refetchMobileCalendarData();
+                startAutoPolling(4000); // 백그라운드에서 돌아왔을 때 폴링 재개
+            } else {
+                stopAutoPolling(); // 백그라운드일 때는 리소스 절약을 위해 폴링 정지
             }
         });
 
@@ -698,19 +726,26 @@
             refetchMobileCalendarData();
         });
 
-        // 모바일 환경 실시간 데이터 자동 재조회(Auto Refetch) 함수
+        // 모바일 환경 실시간 데이터 자동 재조회(Auto Refetch) 및 UI 갱신 함수
         function refetchMobileCalendarData() {
             fetchLatestStateWithCacheBusting();
-            renderDatePickerCalendar();
-            if (selectedConsultDate) {
-                renderTimeSlots(selectedConsultDate);
+            
+            // 현재 활성화된 탭이 학생 신청 탭인 경우 UI 갱신
+            const applyTab = document.getElementById('tab-apply');
+            if (applyTab && !applyTab.classList.contains('hidden')) {
+                renderDatePickerCalendar();
+                if (selectedConsultDate) {
+                    renderTimeSlots(selectedConsultDate);
+                }
             }
+
             if (isAdminLoggedIn) {
                 renderBlockedWeeksTags();
                 renderBlockedSlotsTags();
                 renderAdminCalendar();
                 renderAdminReservationList();
             }
+
             // 내 예약 조회 화면 갱신
             const activeStatusTab = document.getElementById('tab-status');
             if (activeStatusTab && !activeStatusTab.classList.contains('hidden')) {
@@ -875,12 +910,15 @@
         let isAdminLoggedIn = false;
         let adminPassword = localStorage.getItem('geumchon_admin_pw') || "teacher2026!";
 
-        // URL 관리자 인증 체크
+        // URL 관리자 인증 체크 및 초기 자동 주기적 갱신(Polling) 타이머 실행
         window.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('admin') === 'true') {
                 requestAdminAuth();
             }
+            
+            // 4초마다 최신 마감 데이터 및 상담 현황 자동 재불러오기 시작
+            startAutoPolling(4000);
         });
 
         // UI Modal Control
@@ -1934,8 +1972,8 @@
                         </div>
                     </div>
                     <div class="bg-gray-50 p-2.5 rounded-xl border border-gray-100 text-gray-700">
-                        <p class="font-bold text-gray-800">질문 및 고민 내용:</p>
-                        <p class="mt-0.5 whitespace-pre-wrap">${r.question}</p>
+                        <p class="font-semibold text-gray-800 mb-1">상담 고민 질문:</p>
+                        <p class="leading-relaxed whitespace-pre-line">${r.question}</p>
                     </div>
                 `;
                 container.appendChild(card);
@@ -1952,38 +1990,42 @@
         }
 
         function deleteReservationByAdmin(resId) {
-            showModal('삭제 확인', '정말로 이 예약 내역을 삭제하시겠습니까?', true, () => {
-                reservations = reservations.filter(r => String(r.id) !== String(resId));
-                saveReservationsToStorage();
-                renderAdminDashboard();
-            });
+            showModal(
+                '삭제 확인',
+                '해당 예약을 완전히 삭제하시겠습니까?',
+                true,
+                () => {
+                    reservations = reservations.filter(r => String(r.id) !== String(resId));
+                    saveReservationsToStorage();
+                    renderAdminDashboard();
+                    showModal('삭제 완료', '예약 내역이 삭제되었습니다.');
+                }
+            );
         }
 
         function downloadCSV() {
-            let csvContent = "\uFEFF학번,이름,상담분야,상담날짜,시간대,고민내용,상태,신청일시\n";
+            if (reservations.length === 0) {
+                showModal('내보내기 실패', '다운로드할 신청 내역이 없습니다.');
+                return;
+            }
+
+            let csvContent = "\uFEFF학번,이름,상담분야,상담날짜,시간대,상담상태,신청일시,고민내용\n";
             reservations.forEach(r => {
                 const slotLabel = TIME_SLOTS.find(s => s.id === r.timeSlot)?.label || r.timeSlot;
+                const statusLabel = r.status === 'completed' ? '상담완료' : '상담대기';
                 const cleanQuestion = `"${r.question.replace(/"/g, '""')}"`;
-                csvContent += `${r.studentId},${r.studentName},${r.category},${r.date},${slotLabel},${cleanQuestion},${r.status === 'completed' ? '완료' : '대기'},${r.createdAt}\n`;
+                csvContent += `${r.studentId},${r.studentName},${r.category},${r.date},${slotLabel},${statusLabel},${r.createdAt},${cleanQuestion}\n`;
             });
 
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.setAttribute('href', url);
-            link.setAttribute('download', `금촌중_진로상담신청목록_${new Date().toISOString().substring(0, 10)}.csv`);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `금촌중_진로상담_신청명단_${new Date().toISOString().substring(0,10)}.csv`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
         }
-
-        // Initialize Page Load Settings
-        window.onload = function() {
-            loadBlockedState();
-            updateWeekSelectOptions();
-            renderDatePickerCalendar();
-            updateBadgeCount();
-        };
     </script>
 </body>
 </html>
