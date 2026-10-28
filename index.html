@@ -215,7 +215,7 @@
                         <div class="flex items-center justify-between">
                             <span class="text-xs font-bold text-gray-700 flex items-center gap-1.5">
                                 <i class="fa-regular fa-calendar-check text-brand-pink text-sm"></i>
-                                날짜를 선택해주세요 (초록색 = 예약가능 / 회색 = 종료·휴무 / 빨간색 = 마감)
+                                날짜를 선택해주세요 (초록색 = 예약가능 / 회색 = 휴무 / 빨간색 = 마감)
                             </span>
                             <div class="flex items-center space-x-2 bg-white px-2.5 py-1 rounded-xl border border-gray-200 text-xs">
                                 <button type="button" onclick="changePickerMonth(-1)" class="p-1 hover:text-brand-pink"><i class="fa-solid fa-chevron-left"></i></button>
@@ -224,8 +224,8 @@
                             </div>
                         </div>
 
-                        <!-- Date Picker Grid View -->
-                        <div id="picker-calendar-grid" class="grid grid-cols-7 gap-1 text-center text-xs">
+                        <!-- Date Picker Grid View (5-day Mon-Fri) -->
+                        <div id="picker-calendar-grid" class="grid grid-cols-5 gap-1 text-center text-xs">
                             <!-- Populated dynamically -->
                         </div>
                         <input type="hidden" id="consult-date" required>
@@ -340,7 +340,7 @@
             <!-- Authenticated Admin Content Panel -->
             <div id="admin-content-panel" class="space-y-6">
 
-                <!-- [NEW] 교사 전용 학생 신청 전용 링크 / 주소창 카피 탭 카드 -->
+                <!-- 교사 전용 학생 신청 전용 링크 / 주소창 카피 탭 카드 -->
                 <div class="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 rounded-2xl p-5 text-white card-shadow border border-emerald-500/30 space-y-3">
                     <div class="flex items-center justify-between flex-wrap gap-2">
                         <div class="flex items-center space-x-2">
@@ -455,9 +455,9 @@
                                 <input type="date" id="admin-custom-date" class="bg-white border border-rose-300 rounded-xl px-2.5 py-1.5 text-xs font-bold text-gray-800 focus:outline-none">
                                 <select id="admin-custom-slot" class="bg-white border border-rose-300 rounded-xl px-2.5 py-1.5 text-xs font-bold text-gray-800">
                                     <option value="all_day">하루 전체 마감</option>
-                                    <option value="morning">아침 (08:20~08:50)</option>
-                                    <option value="lunch">점심 (13:10~13:40)</option>
-                                    <option value="afterschool">방과후 (15:30~16:15)</option>
+                                    <option value="morning">아침</option>
+                                    <option value="lunch">점심</option>
+                                    <option value="afterschool">방과후</option>
                                 </select>
                                 <button onclick="addCustomSlotBlock()" class="bg-rose-600 hover:bg-rose-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition-all shadow-sm">
                                     <i class="fa-solid fa-plus mr-1"></i> 시간대 추가
@@ -483,7 +483,7 @@
                     </div>
                 </div>
 
-                <!-- Admin Monthly Calendar View -->
+                <!-- Admin Monthly Calendar View (5-day Mon-Fri) -->
                 <div class="space-y-3">
                     <div class="flex items-center justify-between bg-gray-50 p-3 rounded-xl border border-gray-200">
                         <span class="text-xs font-bold text-gray-700"><i class="fa-solid fa-calendar-days text-brand-green mr-1"></i> 교사용 월간 상담 달력 (아침/점심/방과후 현황)</span>
@@ -495,17 +495,15 @@
                     </div>
 
                     <div class="overflow-x-auto">
-                        <div class="min-w-[600px]">
-                            <div class="grid grid-cols-7 gap-1 text-center font-bold text-xs bg-gray-100 py-2 rounded-xl mb-1 text-gray-600">
-                                <div class="text-red-500">일</div>
+                        <div class="min-w-[500px]">
+                            <div class="grid grid-cols-5 gap-1 text-center font-bold text-xs bg-gray-100 py-2 rounded-xl mb-1 text-gray-600">
                                 <div>월</div>
                                 <div>화</div>
                                 <div>수</div>
                                 <div>목</div>
                                 <div>금</div>
-                                <div class="text-blue-500">토</div>
                             </div>
-                            <div id="admin-calendar-days-grid" class="grid grid-cols-7 gap-1">
+                            <div id="admin-calendar-days-grid" class="grid grid-cols-5 gap-1">
                                 <!-- Populated dynamically -->
                             </div>
                         </div>
@@ -534,7 +532,7 @@
                             <h4 class="text-base font-bold text-emerald-900 flex items-center gap-2">
                                 <i class="fa-solid fa-chalkboard-user text-emerald-600"></i> 교사 전용: 교시별 상담 예약 직접 입력 (1교시~7교시)
                             </h4>
-                            <p class="text-xs text-gray-500 mt-0.5">정규 수업 시간(1~7교시) 중 진행되는 상담을 교사가 직접 등록하고 관리하는 전용 공간입니다.</p>
+                            <p class="text-xs text-gray-500 mt-0.5">정규 수업 시간 중 진행되는 상담을 교사가 직접 등록하고 관리하는 전용 공간입니다.</p>
                         </div>
                         <span class="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-1 rounded-full font-bold">수업시간 상담 전용</span>
                     </div>
@@ -556,13 +554,13 @@
                         <div>
                             <label class="block text-xs font-bold text-gray-700 mb-1">상담 교시 선택</label>
                             <select id="admin-period-slot" required class="w-full bg-white border border-emerald-200 rounded-xl p-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                                <option value="1교시">1교시 (09:00 ~ 09:45)</option>
-                                <option value="2교시">2교시 (09:55 ~ 10:40)</option>
-                                <option value="3교시">3교시 (10:50 ~ 11:35)</option>
-                                <option value="4교시">4교시 (11:45 ~ 12:30)</option>
-                                <option value="5교시">5교시 (13:40 ~ 14:25)</option>
-                                <option value="6교시">6교시 (14:35 ~ 15:20)</option>
-                                <option value="7교시">7교시 (15:30 ~ 16:15)</option>
+                                <option value="1교시">1교시</option>
+                                <option value="2교시">2교시</option>
+                                <option value="3교시">3교시</option>
+                                <option value="4교시">4교시</option>
+                                <option value="5교시">5교시</option>
+                                <option value="6교시">6교시</option>
+                                <option value="7교시">7교시</option>
                             </select>
                         </div>
                         <div class="sm:col-span-2">
@@ -614,9 +612,9 @@
     <script>
         // System Constants & Local Data State
         const TIME_SLOTS = [
-            { id: 'morning', label: '아침 (08:20 ~ 08:50)' },
-            { id: 'lunch', label: '점심 (13:10 ~ 13:40)' },
-            { id: 'afterschool', label: '방과후 (15:30 ~ 16:15)' }
+            { id: 'morning', label: '아침' },
+            { id: 'lunch', label: '점심' },
+            { id: 'afterschool', label: '방과후' }
         ];
 
         // Public Holidays List (MM-DD format)
@@ -662,7 +660,6 @@
         function updateShareUrlField() {
             const urlInput = document.getElementById('student-share-url');
             if (urlInput) {
-                // 현재 페이지의 기본 URL 주소를 계산하여 주소창에 표시
                 const cleanUrl = window.location.origin + window.location.pathname;
                 urlInput.value = cleanUrl;
             }
@@ -715,7 +712,6 @@
                 if (savedWeeks) blockedWeeks = JSON.parse(savedWeeks);
                 if (savedSlots) customBlockedSlots = JSON.parse(savedSlots);
 
-                // 스테이징 변수 초기화
                 tempBlockedWeeks = JSON.parse(JSON.stringify(blockedWeeks));
                 tempCustomBlockedSlots = JSON.parse(JSON.stringify(customBlockedSlots));
                 hasUnsavedChanges = false;
@@ -819,7 +815,7 @@
         let isAdminLoggedIn = false;
         let adminPassword = localStorage.getItem('geumchon_admin_pw') || "teacher2026!";
 
-        // URL 관리자 인증 체크 (주소에 admin=true 매개변수가 있을 때 자동 인증 프롬프트 트리거)
+        // URL 관리자 인증 체크
         window.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('admin') === 'true') {
@@ -1099,7 +1095,7 @@
             else badge.classList.add('hidden');
         }
 
-        // Date Selection Visual Picker Grid Functions
+        // Date Selection Visual Picker Grid Functions (Excludes Weekends)
         function changePickerMonth(delta) {
             pickerMonth += delta;
             if (pickerMonth < 0) {
@@ -1127,29 +1123,40 @@
             if (!grid) return;
             grid.innerHTML = '';
 
-            const firstDay = new Date(pickerYear, pickerMonth, 1).getDay();
+            const firstDayObj = new Date(pickerYear, pickerMonth, 1);
+            let firstDay = firstDayObj.getDay(); // 0: Sun, 1: Mon, ... 6: Sat
+            
+            // Adjust offset for 5-day Mon-Fri calendar (0: Mon, 1: Tue, 2: Wed, 3: Thu, 4: Fri)
+            let offset = 0;
+            if (firstDay === 0) offset = 0; // Sunday defaults to 0 offset on Monday start
+            else if (firstDay === 6) offset = 0; // Saturday defaults to 0 offset on Monday start
+            else offset = firstDay - 1;
+
             const daysInMonth = new Date(pickerYear, pickerMonth + 1, 0).getDate();
             const todayMidnight = getTodayMidnight();
             const editingId = document.getElementById('editing-res-id')?.value || '';
 
-            const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
-            dayNames.forEach((name, idx) => {
+            const dayNames = ['월', '화', '수', '목', '금'];
+            dayNames.forEach((name) => {
                 const h = document.createElement('div');
-                h.className = `font-bold py-1 ${idx === 0 ? 'text-red-500' : idx === 6 ? 'text-blue-500' : 'text-gray-600'}`;
+                h.className = 'font-bold py-1 text-gray-600';
                 h.textContent = name;
                 grid.appendChild(h);
             });
 
-            for (let i = 0; i < firstDay; i++) {
+            for (let i = 0; i < offset; i++) {
                 grid.appendChild(document.createElement('div'));
             }
 
             for (let day = 1; day <= daysInMonth; day++) {
-                const dateStr = `${pickerYear}-${String(pickerMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                 const dateObj = new Date(pickerYear, pickerMonth, day);
-                const isPastDate = dateObj.getTime() < todayMidnight.getTime();
                 const dayOfWeek = dateObj.getDay();
-                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+                // Skip Saturday (6) and Sunday (0)
+                if (dayOfWeek === 0 || dayOfWeek === 6) continue;
+
+                const dateStr = `${pickerYear}-${String(pickerMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const isPastDate = dateObj.getTime() < todayMidnight.getTime();
                 const isHoliday = isPublicHoliday(dateStr);
                 const isBlockedWeek = isDateInBlockedWeek(dateStr, false);
 
@@ -1161,7 +1168,7 @@
 
                 let btnClass = 'date-picker-day rounded-xl p-1 flex flex-col items-center justify-between border text-xs ';
 
-                if (isPastDate || isWeekend || isHoliday) {
+                if (isPastDate || isHoliday) {
                     btnClass += 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed';
                 } else if (isBlockedWeek || availSlots === 0) {
                     btnClass += 'bg-red-50 border-red-200 text-red-400 cursor-not-allowed';
@@ -1175,7 +1182,6 @@
 
                 let statusBadge = '';
                 if (isPastDate) statusBadge = '<span class="text-[9px] text-gray-400">종료</span>';
-                else if (isWeekend) statusBadge = '<span class="text-[9px] text-gray-400">휴무</span>';
                 else if (isHoliday) statusBadge = '<span class="text-[9px] text-red-400">공휴일</span>';
                 else if (isBlockedWeek || availSlots === 0) statusBadge = '<span class="text-[9px] text-red-500 font-bold">예약마감</span>';
                 else statusBadge = `<span class="text-[9px] ${isSelected ? 'text-white font-bold' : 'text-brand-green font-semibold'}">${availSlots}개 가능</span>`;
@@ -1185,7 +1191,7 @@
                     ${statusBadge}
                 `;
 
-                if (!isPastDate && !isWeekend && !isHoliday && !isBlockedWeek && availSlots > 0) {
+                if (!isPastDate && !isHoliday && !isBlockedWeek && availSlots > 0) {
                     dayBtn.onclick = () => selectConsultDate(dateStr);
                 }
 
@@ -1312,7 +1318,7 @@
             if (editingId) {
                 const origDate = document.getElementById('editing-orig-date').value;
                 const origSlot = document.getElementById('editing-orig-timeslot').value;
-                const origSlotLabel = TIME_SLOTS.find(s => s.id === origSlot)?.label.split(' ')[0] || origSlot;
+                const origSlotLabel = TIME_SLOTS.find(s => s.id === origSlot)?.label || origSlot;
 
                 showModal(
                     '상담 예약 수정 확인',
@@ -1374,7 +1380,7 @@
             switchTab('status');
         }
 
-        // Search My Reservations (학번과 이름이 모두 정확히 일치해야만 조회되도록 개인정보 수록 강화)
+        // Search My Reservations
         function searchMyReservations() {
             const stuId = document.getElementById('search-student-id').value.trim();
             const stuName = document.getElementById('search-name').value.trim();
@@ -1398,7 +1404,6 @@
                 return;
             }
 
-            // 정확한 본인 확인을 위해 학번과 이름 모두 일치하는 경우만 필터링
             const myRes = reservations.filter(r => 
                 r.studentId === searchId && r.studentName === searchName
             );
@@ -1604,7 +1609,7 @@
             tempCustomBlockedSlots.forEach(b => {
                 let slotLabel = '하루 전체';
                 if (b.slot !== 'all_day') {
-                    slotLabel = TIME_SLOTS.find(s => s.id === b.slot)?.label.split(' ')[0] || b.slot;
+                    slotLabel = TIME_SLOTS.find(s => s.id === b.slot)?.label || b.slot;
                 }
 
                 const tag = document.createElement('div');
@@ -1720,20 +1725,31 @@
             if (!grid) return;
             grid.innerHTML = '';
 
-            const firstDay = new Date(adminYear, adminMonth, 1).getDay();
+            const firstDayObj = new Date(adminYear, adminMonth, 1);
+            let firstDay = firstDayObj.getDay();
+            
+            // Adjust offset for 5-day Mon-Fri calendar (0: Mon, 1: Tue, 2: Wed, 3: Thu, 4: Fri)
+            let offset = 0;
+            if (firstDay === 0) offset = 0;
+            else if (firstDay === 6) offset = 0;
+            else offset = firstDay - 1;
+
             const daysInMonth = new Date(adminYear, adminMonth + 1, 0).getDate();
             const todayMidnight = getTodayMidnight();
 
-            for (let i = 0; i < firstDay; i++) {
+            for (let i = 0; i < offset; i++) {
                 grid.appendChild(document.createElement('div'));
             }
 
             for (let day = 1; day <= daysInMonth; day++) {
-                const dateStr = `${adminYear}-${String(adminMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                 const dateObj = new Date(adminYear, adminMonth, day);
-                const isPastDate = dateObj.getTime() < todayMidnight.getTime();
                 const dayOfWeek = dateObj.getDay();
-                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+                // Skip Saturday (6) and Sunday (0)
+                if (dayOfWeek === 0 || dayOfWeek === 6) continue;
+
+                const dateStr = `${adminYear}-${String(adminMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const isPastDate = dateObj.getTime() < todayMidnight.getTime();
                 const isHoliday = isPublicHoliday(dateStr);
 
                 const dayResList = reservations.filter(r => r.date === dateStr);
@@ -1743,7 +1759,7 @@
                 const dayCard = document.createElement('div');
                 
                 let cardClass = 'cal-day rounded-xl p-1.5 flex flex-col justify-between overflow-hidden shadow-sm border ';
-                if (isPastDate || isWeekend || isHoliday) {
+                if (isPastDate || isHoliday) {
                     cardClass += 'bg-gray-100 border-gray-200 text-gray-400 opacity-70';
                 } else if (isBlockedByTeacher) {
                     cardClass += 'bg-amber-50/70 border-amber-200';
@@ -1755,7 +1771,6 @@
 
                 let topHeaderBadge = '';
                 if (isPastDate) topHeaderBadge = '<span class="text-[9px] bg-gray-200 text-gray-500 font-bold px-1 rounded">종료</span>';
-                else if (isWeekend) topHeaderBadge = '<span class="text-[9px] bg-gray-200 text-gray-500 font-bold px-1 rounded">주말</span>';
                 else if (isHoliday) topHeaderBadge = '<span class="text-[9px] bg-red-100 text-red-600 font-bold px-1 rounded">공휴일</span>';
                 else if (isBlockedByTeacher) topHeaderBadge = '<span class="text-[9px] bg-amber-200 text-amber-800 font-bold px-1 rounded">주마감</span>';
 
@@ -1767,10 +1782,10 @@
                     <div class="space-y-1 my-0.5 flex-grow overflow-y-auto max-h-[120px]">
                 `;
 
-                if (!isWeekend && !isHoliday) {
+                if (!isHoliday) {
                     TIME_SLOTS.forEach(slot => {
                         const slotRes = dayResList.find(r => r.timeSlot === slot.id);
-                        const slotShortLabel = slot.id === 'morning' ? '아침' : slot.id === 'lunch' ? '점심' : '방과후';
+                        const slotShortLabel = slot.label;
                         const isFixedBlocked = isFixedBlockedSlot(dayOfWeek, slot.id);
                         const isCustomBlocked = isCustomBlockedSlot(dateStr, slot.id, true);
 
