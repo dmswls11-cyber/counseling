@@ -339,6 +339,34 @@
 
             <!-- Authenticated Admin Content Panel -->
             <div id="admin-content-panel" class="space-y-6">
+
+                <!-- [NEW] 교사 전용 학생 신청 전용 링크 / 주소창 카피 탭 카드 -->
+                <div class="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 rounded-2xl p-5 text-white card-shadow border border-emerald-500/30 space-y-3">
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                        <div class="flex items-center space-x-2">
+                            <span class="bg-emerald-500 text-white p-1.5 rounded-lg text-xs font-bold"><i class="fa-solid fa-link"></i></span>
+                            <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
+                                학생 안내용 신청 링크 주소창
+                            </h3>
+                        </div>
+                        <span class="text-[11px] bg-emerald-800/80 text-emerald-200 px-2.5 py-0.5 rounded-full font-medium">교사모드 전용 확인 기능</span>
+                    </div>
+                    <p class="text-xs text-slate-300">학생들에게 알리미, 가정통신문, 홈페이지에 게시할 상담 신청 URL 주소입니다. 오른쪽 복사 버튼을 눌러 공유하세요.</p>
+                    
+                    <!-- 주소창 탭 바 -->
+                    <div class="flex items-center bg-slate-950/80 border border-slate-700 rounded-xl p-1.5 shadow-inner">
+                        <div class="flex items-center px-3 text-slate-400 text-xs font-mono shrink-0 border-r border-slate-800 mr-2 gap-1.5">
+                            <i class="fa-solid fa-globe text-emerald-400"></i>
+                            <span>URL</span>
+                        </div>
+                        <input type="text" id="student-share-url" readonly class="bg-transparent border-none w-full text-xs text-emerald-300 font-mono focus:outline-none px-2 select-all" value="">
+                        <button onclick="copyStudentUrl()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition-all shrink-0 flex items-center gap-1.5 shadow-sm touch-scale">
+                            <i class="fa-solid fa-copy"></i>
+                            <span>주소 복사</span>
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Admin Top Stat Bar -->
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div class="bg-white p-4 rounded-2xl border border-gray-100 card-shadow flex items-center space-x-3">
@@ -371,10 +399,17 @@
                             <span class="bg-amber-500 text-white p-2 rounded-xl text-xs font-bold"><i class="fa-solid fa-lock"></i></span>
                             <div>
                                 <h3 class="text-base font-bold text-gray-900">상담 예약 일괄 마감 설정 (교사 전용)</h3>
-                                <p class="text-xs text-gray-500">시험 기간, 교사 출장, 주차별 지정 일자/시간대의 상담 신청을 일괄적으로 마감합니다.</p>
+                                <p class="text-xs text-gray-500">마감 항목 변경 후 하단의 <b class="text-amber-800">[설정 저장]</b> 버튼을 눌러야 확정 반영됩니다.</p>
                             </div>
                         </div>
-                        <span class="text-xs bg-amber-100 text-amber-800 font-bold px-2.5 py-1 rounded-full">즉시 달력 반영</span>
+                        <div class="flex items-center gap-2">
+                            <span id="unsaved-status-badge" class="hidden text-xs bg-red-500 text-white font-bold px-2.5 py-1 rounded-full animate-pulse">
+                                <i class="fa-solid fa-triangle-exclamation mr-1"></i>미저장 변경사항 있음
+                            </span>
+                            <button onclick="commitBlockedState()" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 touch-scale">
+                                <i class="fa-solid fa-floppy-disk"></i> 설정 저장
+                            </button>
+                        </div>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -383,7 +418,7 @@
                             <h4 class="text-xs font-bold text-amber-900 flex items-center gap-1.5">
                                 <i class="fa-solid fa-calendar-minus text-amber-600"></i> 주 단위 상담 일괄 마감
                             </h4>
-                            <p class="text-[11px] text-amber-700 leading-relaxed">지정한 주차(월~금 전체)의 예약을 한번에 마감 처리합니다.</p>
+                            <p class="text-[11px] text-amber-700 leading-relaxed">지정한 주차(월~금 전체)의 예약을 한번에 마감 목록에 추가합니다.</p>
                             
                             <div class="flex flex-wrap items-center gap-2 pt-1">
                                 <select id="admin-block-year" class="bg-white border border-amber-300 rounded-xl px-2.5 py-1.5 text-xs font-bold text-gray-800">
@@ -399,7 +434,7 @@
                                     <!-- Dynamically populated -->
                                 </select>
                                 <button onclick="addWeeklyBlock()" class="bg-amber-600 hover:bg-amber-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition-all shadow-sm">
-                                    <i class="fa-solid fa-ban mr-1"></i> 주차 마감
+                                    <i class="fa-solid fa-plus mr-1"></i> 주차 추가
                                 </button>
                             </div>
 
@@ -414,7 +449,7 @@
                             <h4 class="text-xs font-bold text-rose-900 flex items-center gap-1.5">
                                 <i class="fa-solid fa-clock text-rose-600"></i> 특정 날짜 & 시간대 마감
                             </h4>
-                            <p class="text-[11px] text-rose-700 leading-relaxed">지정한 특정 날짜의 원하는 시간대만 선택하여 마감합니다.</p>
+                            <p class="text-[11px] text-rose-700 leading-relaxed">지정한 특정 날짜의 원하는 시간대만 선택하여 마감 목록에 추가합니다.</p>
                             
                             <div class="flex flex-wrap items-center gap-2 pt-1">
                                 <input type="date" id="admin-custom-date" class="bg-white border border-rose-300 rounded-xl px-2.5 py-1.5 text-xs font-bold text-gray-800 focus:outline-none">
@@ -425,7 +460,7 @@
                                     <option value="afterschool">방과후 (15:30~16:15)</option>
                                 </select>
                                 <button onclick="addCustomSlotBlock()" class="bg-rose-600 hover:bg-rose-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition-all shadow-sm">
-                                    <i class="fa-solid fa-lock mr-1"></i> 시간대 마감
+                                    <i class="fa-solid fa-plus mr-1"></i> 시간대 추가
                                 </button>
                             </div>
 
@@ -434,6 +469,17 @@
                                 <!-- Dynamically generated blocked slot tags -->
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Bottom Fixed Confirm Actions Bar -->
+                    <div class="pt-2 flex items-center justify-between border-t border-amber-100 bg-amber-50/30 p-3 rounded-xl">
+                        <span class="text-xs font-semibold text-gray-600">
+                            * 작업 완료 후 [설정 저장] 버튼을 누르면 교사/학생 화면 전체에 수정 내용이 일괄 적용됩니다.
+                        </span>
+                        <button onclick="commitBlockedState()" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition-all shadow-md flex items-center gap-2 touch-scale">
+                            <i class="fa-solid fa-floppy-disk"></i>
+                            <span>[설정 저장] 최종 확정 적용</span>
+                        </button>
                     </div>
                 </div>
 
@@ -585,11 +631,14 @@
             '12-25'  // 성탄절
         ];
 
-        // Blocked Weeks list managed by admin teacher
+        // Currently Saved Blocked Weeks & Custom Blocked Slots
         let blockedWeeks = [];
-
-        // Custom Blocked Slots list managed by admin teacher [{ date: 'YYYY-MM-DD', slot: 'morning' | 'all_day' }]
         let customBlockedSlots = [];
+
+        // Temporary (Staging) Blocked Data for Teacher Admin UI
+        let tempBlockedWeeks = [];
+        let tempCustomBlockedSlots = [];
+        let hasUnsavedChanges = false;
 
         // BroadcastChannel 및 실시간 이벤트 채널 설정
         let syncChannel;
@@ -609,16 +658,54 @@
             }
         });
 
-        // 마감 상태 localStorage 저장 및 로드, 실시간 동기화 브로드캐스트 함수
-        function saveBlockedState() {
+        // 학생 공유 URL 자동 계산 및 복사 기능
+        function updateShareUrlField() {
+            const urlInput = document.getElementById('student-share-url');
+            if (urlInput) {
+                // 현재 페이지의 기본 URL 주소를 계산하여 주소창에 표시
+                const cleanUrl = window.location.origin + window.location.pathname;
+                urlInput.value = cleanUrl;
+            }
+        }
+
+        function copyStudentUrl() {
+            const urlInput = document.getElementById('student-share-url');
+            if (!urlInput) return;
+
+            urlInput.select();
+            urlInput.setSelectionRange(0, 99999);
+
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(urlInput.value).then(() => {
+                    showModal('주소 복사 완료 📋', '학생 상담 신청 URL 주소가 클립보드에 복사되었습니다.<br>가정통신문, 알림장, 학급 게시판 등에 붙여넣기(Ctrl+V)하여 전달해 주세요.');
+                }).catch(() => {
+                    document.execCommand('copy');
+                    showModal('주소 복사 완료 📋', '학생 상담 신청 URL 주소가 클립보드에 복사되었습니다.');
+                });
+            } else {
+                document.execCommand('copy');
+                showModal('주소 복사 완료 📋', '학생 상담 신청 URL 주소가 클립보드에 복사되었습니다.');
+            }
+        }
+
+        // [설정 저장] 버튼을 누를 때 호출 - 임시 데이터(Staging)를 최종 적용 및 저장
+        function commitBlockedState() {
+            blockedWeeks = JSON.parse(JSON.stringify(tempBlockedWeeks));
+            customBlockedSlots = JSON.parse(JSON.stringify(tempCustomBlockedSlots));
+            
             localStorage.setItem('geumchon_blocked_weeks', JSON.stringify(blockedWeeks));
             localStorage.setItem('geumchon_custom_blocked_slots', JSON.stringify(customBlockedSlots));
             
+            hasUnsavedChanges = false;
+            updateUnsavedBadge();
+
             onBlockedStateChanged();
 
             if (syncChannel) {
                 syncChannel.postMessage({ type: 'BLOCKED_STATE_UPDATED' });
             }
+
+            showModal('설정 저장 완료 ✅', '모든 마감 설정이 최종 확정되어 교사 및 학생 화면에 일괄 반영되었습니다.');
         }
 
         function loadBlockedState() {
@@ -627,13 +714,27 @@
                 const savedSlots = localStorage.getItem('geumchon_custom_blocked_slots');
                 if (savedWeeks) blockedWeeks = JSON.parse(savedWeeks);
                 if (savedSlots) customBlockedSlots = JSON.parse(savedSlots);
+
+                // 스테이징 변수 초기화
+                tempBlockedWeeks = JSON.parse(JSON.stringify(blockedWeeks));
+                tempCustomBlockedSlots = JSON.parse(JSON.stringify(customBlockedSlots));
+                hasUnsavedChanges = false;
+                updateUnsavedBadge();
             } catch (e) {
                 console.error('Failed to load blocked state:', e);
             }
         }
 
         function onBlockedStateChanged() {
-            loadBlockedState();
+            try {
+                const savedWeeks = localStorage.getItem('geumchon_blocked_weeks');
+                const savedSlots = localStorage.getItem('geumchon_custom_blocked_slots');
+                if (savedWeeks) blockedWeeks = JSON.parse(savedWeeks);
+                if (savedSlots) customBlockedSlots = JSON.parse(savedSlots);
+            } catch (e) {
+                console.error('Failed to sync blocked state:', e);
+            }
+
             renderDatePickerCalendar();
             if (selectedConsultDate) {
                 renderTimeSlots(selectedConsultDate);
@@ -643,6 +744,25 @@
                 renderBlockedSlotsTags();
                 renderAdminCalendar();
             }
+        }
+
+        function updateUnsavedBadge() {
+            const badge = document.getElementById('unsaved-status-badge');
+            if (badge) {
+                if (hasUnsavedChanges) {
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+            }
+        }
+
+        function markAsUnsaved() {
+            hasUnsavedChanges = true;
+            updateUnsavedBadge();
+            renderBlockedWeeksTags();
+            renderBlockedSlotsTags();
+            renderAdminCalendar();
         }
 
         // Additional Class Period Reservations (1~7 교시 교사 직접 입력 데이터)
@@ -925,14 +1045,16 @@
             return false;
         }
 
-        function isDateInBlockedWeek(dateStr) {
-            return blockedWeeks.some(b => {
+        function isDateInBlockedWeek(dateStr, useTemp = false) {
+            const list = useTemp ? tempBlockedWeeks : blockedWeeks;
+            return list.some(b => {
                 return dateStr >= b.startDate && dateStr <= b.endDate;
             });
         }
 
-        function isCustomBlockedSlot(dateStr, slotId) {
-            return customBlockedSlots.some(b => b.date === dateStr && (b.slot === slotId || b.slot === 'all_day'));
+        function isCustomBlockedSlot(dateStr, slotId, useTemp = false) {
+            const list = useTemp ? tempCustomBlockedSlots : customBlockedSlots;
+            return list.some(b => b.date === dateStr && (b.slot === slotId || b.slot === 'all_day'));
         }
 
         function isWithin7Days(consultDateStr) {
@@ -1029,7 +1151,7 @@
                 const dayOfWeek = dateObj.getDay();
                 const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
                 const isHoliday = isPublicHoliday(dateStr);
-                const isBlockedWeek = isDateInBlockedWeek(dateStr);
+                const isBlockedWeek = isDateInBlockedWeek(dateStr, false);
 
                 const availSlots = getAvailableSlotCountForDate(dateStr, editingId);
                 const isSelected = selectedConsultDate === dateStr;
@@ -1087,7 +1209,7 @@
 
             TIME_SLOTS.forEach(slot => {
                 const isFixedBlocked = isFixedBlockedSlot(dayOfWeek, slot.id);
-                const isCustomBlocked = isCustomBlockedSlot(dateStr, slot.id);
+                const isCustomBlocked = isCustomBlockedSlot(dateStr, slot.id, false);
                 const isBooked = existingBooked.includes(slot.id);
                 const isSelected = selectedTimeSlotId === slot.id;
 
@@ -1136,7 +1258,7 @@
             const dayOfWeek = dateObj.getDay();
             const todayMidnight = getTodayMidnight();
 
-            if (dateObj.getTime() < todayMidnight.getTime() || dayOfWeek === 0 || dayOfWeek === 6 || isPublicHoliday(dateStr) || isDateInBlockedWeek(dateStr)) return 0;
+            if (dateObj.getTime() < todayMidnight.getTime() || dayOfWeek === 0 || dayOfWeek === 6 || isPublicHoliday(dateStr) || isDateInBlockedWeek(dateStr, false)) return 0;
 
             const existingBooked = reservations
                 .filter(r => r.date === dateStr && String(r.id) !== String(editingId))
@@ -1145,7 +1267,7 @@
             let availableCount = 0;
             TIME_SLOTS.forEach(slot => {
                 const isBlockedByRule = isFixedBlockedSlot(dayOfWeek, slot.id);
-                const isBlockedByCustom = isCustomBlockedSlot(dateStr, slot.id);
+                const isBlockedByCustom = isCustomBlockedSlot(dateStr, slot.id, false);
                 const isBooked = existingBooked.includes(slot.id);
                 if (!isBlockedByRule && !isBlockedByCustom && !isBooked) {
                     availableCount++;
@@ -1414,28 +1536,26 @@
             const startDate = `${year}-${String(month).padStart(2, '0')}-${String(startDay).padStart(2, '0')}`;
             const endDate = `${year}-${String(month).padStart(2, '0')}-${String(endDay).padStart(2, '0')}`;
 
-            blockedWeeks.push({ year, month, week, startDate, endDate });
-            saveBlockedState();
-            showModal('주차 마감 처리', `${year}년 ${month}월 ${week}주차가 성공적으로 마감 처리되었습니다.`);
+            tempBlockedWeeks.push({ year, month, week, startDate, endDate });
+            markAsUnsaved();
         }
 
         function removeWeeklyBlock(index) {
-            blockedWeeks.splice(index, 1);
-            saveBlockedState();
-            showModal('마감 해제', '해당 주차 마감이 해제되었습니다.');
+            tempBlockedWeeks.splice(index, 1);
+            markAsUnsaved();
         }
 
         function renderBlockedWeeksTags() {
             const container = document.getElementById('blocked-weeks-list');
             if (!container) return;
 
-            if (blockedWeeks.length === 0) {
+            if (tempBlockedWeeks.length === 0) {
                 container.innerHTML = '<span class="text-[11px] text-gray-400">교사가 마감 설정한 주차가 없습니다.</span>';
                 return;
             }
 
             container.innerHTML = '<span class="text-[11px] font-bold text-amber-900 self-center">마감 주차 목록:</span>';
-            blockedWeeks.forEach((b, idx) => {
+            tempBlockedWeeks.forEach((b, idx) => {
                 const tag = document.createElement('div');
                 tag.className = 'bg-amber-200 text-amber-900 border border-amber-300 rounded-lg px-2.5 py-1 text-xs font-bold flex items-center gap-1.5';
                 tag.innerHTML = `
@@ -1457,38 +1577,31 @@
                 return;
             }
 
-            let slotLabel = '하루 전체';
-            if (slotSelect !== 'all_day') {
-                slotLabel = TIME_SLOTS.find(s => s.id === slotSelect)?.label.split(' ')[0] || slotSelect;
-            }
-
-            if (isCustomBlockedSlot(dateInput, slotSelect)) {
-                showModal('이미 마감됨', '해당 날짜의 시간대는 이미 마감 처리되어 있습니다.');
+            if (isCustomBlockedSlot(dateInput, slotSelect, true)) {
+                showModal('이미 마감됨', '해당 날짜의 시간대는 이미 마감 목록에 추가되어 있습니다.');
                 return;
             }
 
-            customBlockedSlots.push({ date: dateInput, slot: slotSelect });
-            saveBlockedState();
-            showModal('시간대 마감 성공', `${dateInput} [${slotLabel}] 시간대가 상담 마감 처리되었습니다.`);
+            tempCustomBlockedSlots.push({ date: dateInput, slot: slotSelect });
+            markAsUnsaved();
         }
 
         function removeCustomSlotBlock(dateStr, slotId) {
-            customBlockedSlots = customBlockedSlots.filter(b => !(b.date === dateStr && b.slot === slotId));
-            saveBlockedState();
-            showModal('마감 해제', `${dateStr} 시간대 마감이 해제되었습니다.`);
+            tempCustomBlockedSlots = tempCustomBlockedSlots.filter(b => !(b.date === dateStr && b.slot === slotId));
+            markAsUnsaved();
         }
 
         function renderBlockedSlotsTags() {
             const container = document.getElementById('blocked-slots-list');
             if (!container) return;
 
-            if (customBlockedSlots.length === 0) {
+            if (tempCustomBlockedSlots.length === 0) {
                 container.innerHTML = '<span class="text-[11px] text-gray-400">교사가 수동으로 마감한 개별 시간대가 없습니다.</span>';
                 return;
             }
 
             container.innerHTML = '<span class="text-[11px] font-bold text-rose-900 self-center">마감 시간대 목록:</span>';
-            customBlockedSlots.forEach(b => {
+            tempCustomBlockedSlots.forEach(b => {
                 let slotLabel = '하루 전체';
                 if (b.slot !== 'all_day') {
                     slotLabel = TIME_SLOTS.find(s => s.id === b.slot)?.label.split(' ')[0] || b.slot;
@@ -1507,10 +1620,12 @@
         }
 
         function renderAdminDashboard() {
+            updateShareUrlField();
             document.getElementById('stat-total').textContent = `${reservations.length}건`;
             document.getElementById('stat-pending').textContent = `${reservations.filter(r => r.status === 'pending').length}건`;
             document.getElementById('stat-completed').textContent = `${reservations.filter(r => r.status === 'completed').length}건`;
 
+            updateUnsavedBadge();
             renderBlockedWeeksTags();
             renderBlockedSlotsTags();
             renderAdminCalendar();
@@ -1623,7 +1738,7 @@
 
                 const dayResList = reservations.filter(r => r.date === dateStr);
                 const dayPeriodList = periodReservations.filter(pr => pr.date === dateStr);
-                const isBlockedByTeacher = isDateInBlockedWeek(dateStr);
+                const isBlockedByTeacher = isDateInBlockedWeek(dateStr, true);
 
                 const dayCard = document.createElement('div');
                 
@@ -1657,7 +1772,7 @@
                         const slotRes = dayResList.find(r => r.timeSlot === slot.id);
                         const slotShortLabel = slot.id === 'morning' ? '아침' : slot.id === 'lunch' ? '점심' : '방과후';
                         const isFixedBlocked = isFixedBlockedSlot(dayOfWeek, slot.id);
-                        const isCustomBlocked = isCustomBlockedSlot(dateStr, slot.id);
+                        const isCustomBlocked = isCustomBlockedSlot(dateStr, slot.id, true);
 
                         if (slotRes) {
                             const isDone = slotRes.status === 'completed';
