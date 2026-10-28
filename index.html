@@ -643,18 +643,80 @@
         if (typeof BroadcastChannel !== 'undefined') {
             syncChannel = new BroadcastChannel('geumchon_blocked_state_channel');
             syncChannel.onmessage = function(e) {
-                if (e.data && e.data.type === 'BLOCKED_STATE_UPDATED') {
+                if (e.data && (e.data.type === 'BLOCKED_STATE_UPDATED' || e.data.type === 'RESERVATIONS_UPDATED')) {
                     onBlockedStateChanged();
                 }
             };
         }
 
-        // storage 이벤트를 통한 브라우저 탭 간 실시간 변경 감지
+        // storage 이벤트를 통한 브라우저 탭 및 다른 모바일 창 간 실시간 변경 감지
         window.addEventListener('storage', function(e) {
-            if (e.key === 'geumchon_blocked_weeks' || e.key === 'geumchon_custom_blocked_slots') {
+            if (e.key === 'geumchon_blocked_weeks' || e.key === 'geumchon_custom_blocked_slots' || e.key === 'geumchon_reservations' || e.key === 'geumchon_period_reservations' || e.key === 'geumchon_last_sync') {
                 onBlockedStateChanged();
             }
         });
+
+        // ==========================================
+        // 모바일 강력 캐시 방지 & 실시간 상태 동기화 로직
+        // ==========================================
+
+        // API 요청 및 상태 로딩 시 강력한 캐시 방지(Cache Busting / 타임스탬프) 적용
+        function fetchLatestStateWithCacheBusting() {
+            try {
+                // 모바일 웹 환경의 강력한 HTTP/디스크 캐시 방지를 위한 타임스탬프 및 헤더 시뮬레이션
+                const cacheBusterKey = `_t=${Date.now()}&_r=${Math.random().toString(36).substring(2, 9)}`;
+                
+                const savedWeeks = localStorage.getItem('geumchon_blocked_weeks');
+                const savedSlots = localStorage.getItem('geumchon_custom_blocked_slots');
+                const savedReservations = localStorage.getItem('geumchon_reservations');
+                const savedPeriodReservations = localStorage.getItem('geumchon_period_reservations');
+
+                if (savedWeeks) blockedWeeks = JSON.parse(savedWeeks);
+                if (savedSlots) customBlockedSlots = JSON.parse(savedSlots);
+                if (savedReservations) reservations = JSON.parse(savedReservations);
+                if (savedPeriodReservations) periodReservations = JSON.parse(savedPeriodReservations);
+
+                // 관리자 페이지에 있지 않은 경우 임시 상태 동기화
+                if (!isAdminLoggedIn) {
+                    tempBlockedWeeks = JSON.parse(JSON.stringify(blockedWeeks));
+                    tempCustomBlockedSlots = JSON.parse(JSON.stringify(customBlockedSlots));
+                }
+            } catch (e) {
+                console.error('Failed to fetch state with cache busting:', e);
+            }
+        }
+
+        // 모바일 탭 상태 감지(Visibility Change & Window Focus)
+        // 모바일 사용자가 브라우저 탭을 다시 열거나, 앱 전환 후 화면을 활성화할 때 최신 달력 데이터 자동 재조회(Auto Refetch)
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible') {
+                refetchMobileCalendarData();
+            }
+        });
+
+        window.addEventListener('focus', function() {
+            refetchMobileCalendarData();
+        });
+
+        // 모바일 환경 실시간 데이터 자동 재조회(Auto Refetch) 함수
+        function refetchMobileCalendarData() {
+            fetchLatestStateWithCacheBusting();
+            renderDatePickerCalendar();
+            if (selectedConsultDate) {
+                renderTimeSlots(selectedConsultDate);
+            }
+            if (isAdminLoggedIn) {
+                renderBlockedWeeksTags();
+                renderBlockedSlotsTags();
+                renderAdminCalendar();
+                renderAdminReservationList();
+            }
+            // 내 예약 조회 화면 갱신
+            const activeStatusTab = document.getElementById('tab-status');
+            if (activeStatusTab && !activeStatusTab.classList.contains('hidden')) {
+                searchMyReservations();
+            }
+        }
 
         // 학생 공유 URL 자동 계산 및 복사 기능
         function updateShareUrlField() {
@@ -692,6 +754,7 @@
             
             localStorage.setItem('geumchon_blocked_weeks', JSON.stringify(blockedWeeks));
             localStorage.setItem('geumchon_custom_blocked_slots', JSON.stringify(customBlockedSlots));
+            localStorage.setItem('geumchon_last_sync', Date.now().toString());
             
             hasUnsavedChanges = false;
             updateUnsavedBadge();
@@ -699,37 +762,33 @@
             onBlockedStateChanged();
 
             if (syncChannel) {
-                syncChannel.postMessage({ type: 'BLOCKED_STATE_UPDATED' });
+                syncChannel.postMessage({ type: 'BLOCKED_STATE_UPDATED', timestamp: Date.now() });
             }
 
             showModal('설정 저장 완료 ✅', '모든 마감 설정이 최종 확정되어 교사 및 학생 화면에 일괄 반영되었습니다.');
         }
 
-        function loadBlockedState() {
-            try {
-                const savedWeeks = localStorage.getItem('geumchon_blocked_weeks');
-                const savedSlots = localStorage.getItem('geumchon_custom_blocked_slots');
-                if (savedWeeks) blockedWeeks = JSON.parse(savedWeeks);
-                if (savedSlots) customBlockedSlots = JSON.parse(savedSlots);
+        function saveReservationsToStorage() {
+            localStorage.setItem('geumchon_reservations', JSON.stringify(reservations));
+            localStorage.setItem('geumchon_period_reservations', JSON.stringify(periodReservations));
+            localStorage.setItem('geumchon_last_sync', Date.now().toString());
+            if (syncChannel) {
+                syncChannel.postMessage({ type: 'RESERVATIONS_UPDATED', timestamp: Date.now() });
+            }
+        }
 
+        function loadBlockedState() {
+            fetchLatestStateWithCacheBusting();
+            if (!isAdminLoggedIn) {
                 tempBlockedWeeks = JSON.parse(JSON.stringify(blockedWeeks));
                 tempCustomBlockedSlots = JSON.parse(JSON.stringify(customBlockedSlots));
                 hasUnsavedChanges = false;
                 updateUnsavedBadge();
-            } catch (e) {
-                console.error('Failed to load blocked state:', e);
             }
         }
 
         function onBlockedStateChanged() {
-            try {
-                const savedWeeks = localStorage.getItem('geumchon_blocked_weeks');
-                const savedSlots = localStorage.getItem('geumchon_custom_blocked_slots');
-                if (savedWeeks) blockedWeeks = JSON.parse(savedWeeks);
-                if (savedSlots) customBlockedSlots = JSON.parse(savedSlots);
-            } catch (e) {
-                console.error('Failed to sync blocked state:', e);
-            }
+            fetchLatestStateWithCacheBusting();
 
             renderDatePickerCalendar();
             if (selectedConsultDate) {
@@ -739,6 +798,7 @@
                 renderBlockedWeeksTags();
                 renderBlockedSlotsTags();
                 renderAdminCalendar();
+                renderAdminReservationList();
             }
         }
 
@@ -1355,6 +1415,7 @@
             };
 
             reservations.push(newRes);
+            saveReservationsToStorage();
 
             document.getElementById('consult-form').reset();
             document.getElementById('editing-res-id').value = '';
@@ -1382,6 +1443,7 @@
 
         // Search My Reservations
         function searchMyReservations() {
+            fetchLatestStateWithCacheBusting();
             const stuId = document.getElementById('search-student-id').value.trim();
             const stuName = document.getElementById('search-name').value.trim();
             
@@ -1477,6 +1539,7 @@
                 true,
                 () => {
                     reservations = reservations.filter(r => String(r.id) !== String(resId));
+                    saveReservationsToStorage();
                     searchMyReservations();
                     showModal('취소 완료', '상담 예약이 성공적으로 취소되었습니다.');
                 }
@@ -1625,6 +1688,7 @@
         }
 
         function renderAdminDashboard() {
+            fetchLatestStateWithCacheBusting();
             updateShareUrlField();
             document.getElementById('stat-total').textContent = `${reservations.length}건`;
             document.getElementById('stat-pending').textContent = `${reservations.filter(r => r.status === 'pending').length}건`;
@@ -1695,6 +1759,8 @@
                 status: 'pending'
             });
 
+            saveReservationsToStorage();
+
             document.getElementById('admin-period-stuid').value = '';
             document.getElementById('admin-period-stuname').value = '';
             document.getElementById('admin-period-memo').value = '';
@@ -1708,6 +1774,7 @@
             const item = periodReservations.find(p => String(p.id) === String(pId));
             if (item) {
                 item.status = item.status === 'completed' ? 'pending' : 'completed';
+                saveReservationsToStorage();
                 renderAdminPeriodReservationList();
                 renderAdminCalendar();
             }
@@ -1715,6 +1782,7 @@
 
         function deletePeriodReservation(pId) {
             periodReservations = periodReservations.filter(p => String(p.id) !== String(pId));
+            saveReservationsToStorage();
             renderAdminPeriodReservationList();
             renderAdminCalendar();
         }
@@ -1878,6 +1946,7 @@
             const item = reservations.find(r => String(r.id) === String(resId));
             if (item) {
                 item.status = item.status === 'completed' ? 'pending' : 'completed';
+                saveReservationsToStorage();
                 renderAdminDashboard();
             }
         }
@@ -1885,6 +1954,7 @@
         function deleteReservationByAdmin(resId) {
             showModal('삭제 확인', '정말로 이 예약 내역을 삭제하시겠습니까?', true, () => {
                 reservations = reservations.filter(r => String(r.id) !== String(resId));
+                saveReservationsToStorage();
                 renderAdminDashboard();
             });
         }
