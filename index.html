@@ -615,6 +615,9 @@
 
     <!-- Application Script Logic (GitHub Pages Standalone) -->
     <script>
+        // Storage Schema Version Identifier (스마트폰 브라우저의 무분별한 옛날 캐시/LocalStorage 데이터 강제 초기화용)
+        const STORAGE_VERSION = 'v2_20261029';
+
         // System Constants & Local Data State
         const TIME_SLOTS = [
             { id: 'morning', label: '아침' },
@@ -665,10 +668,26 @@
         });
 
         // ==========================================
-        // GitHub Pages 전용 Fetch Cache-Busting & 데이터 로드 로직
+        // GitHub Pages 전용 캐시 완전 무효화 & 동기화 로직
         // ==========================================
 
-        // 외부 JSON 서버나 데이터 엔드포인트 연동이 필요한 경우 사용할 수 있는 캐시 무효화 fetch 래퍼
+        // 오래된 모바일 캐시 데이터 강제 초기화 검증
+        function checkAndSanitizeLocalStorage() {
+            try {
+                const currentVersion = localStorage.getItem('geumchon_storage_version');
+                if (currentVersion !== STORAGE_VERSION) {
+                    // 구버전 캐시 데이터 삭제하여 기기 간 데이터 불일치(29일/30일 마감 오작동) 차단
+                    localStorage.removeItem('geumchon_blocked_weeks');
+                    localStorage.removeItem('geumchon_custom_blocked_slots');
+                    localStorage.setItem('geumchon_storage_version', STORAGE_VERSION);
+                    console.log('Clearing stale mobile local storage cache:', STORAGE_VERSION);
+                }
+            } catch (e) {
+                console.error('LocalStorage reset check failed:', e);
+            }
+        }
+
+        // 외부 JSON 또는 서버 연동을 위한 캐시 차단 fetch 래퍼
         async function fetchWithCacheBusting(url, options = {}) {
             const timestamp = Date.now();
             const delimiter = url.includes('?') ? '&' : '?';
@@ -697,14 +716,16 @@
         // 최신 마감 및 예약 데이터 갱신 (Fetch + LocalStorage 하이브리드)
         function fetchLatestStateWithCacheBusting(callback) {
             try {
+                checkAndSanitizeLocalStorage();
+
                 // LocalStorage 데이터 읽기
                 const savedWeeks = localStorage.getItem('geumchon_blocked_weeks');
                 const savedSlots = localStorage.getItem('geumchon_custom_blocked_slots');
                 const savedReservations = localStorage.getItem('geumchon_reservations');
                 const savedPeriodReservations = localStorage.getItem('geumchon_period_reservations');
 
-                if (savedWeeks) blockedWeeks = JSON.parse(savedWeeks);
-                if (savedSlots) customBlockedSlots = JSON.parse(savedSlots);
+                blockedWeeks = savedWeeks ? JSON.parse(savedWeeks) : [];
+                customBlockedSlots = savedSlots ? JSON.parse(savedSlots) : [];
                 if (savedReservations) reservations = JSON.parse(savedReservations);
                 if (savedPeriodReservations) periodReservations = JSON.parse(savedPeriodReservations);
 
@@ -2054,6 +2075,9 @@
             if (urlParams.get('admin') === 'true') {
                 requestAdminAuth();
             }
+
+            // 모바일 브라우저 구버전 스토리지 캐시 검증 및 강제 정리
+            checkAndSanitizeLocalStorage();
             
             fetchLatestStateWithCacheBusting(() => {
                 updateWeekSelectOptions();
