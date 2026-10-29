@@ -3,6 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 모바일 브라우저 강력 캐시 방지 메타 태그 -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    
     <title>금촌중학교 진로진학상담 신청 시스템 | Geumchon Career Hub</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -107,7 +112,7 @@
                     <h1 class="text-base sm:text-lg font-bold text-gray-900 leading-tight flex items-center gap-1.5">
                         금촌중학교 <span class="text-xs bg-green-100 text-brand-green px-2 py-0.5 rounded-full font-semibold hidden sm:inline-block">진로진학상담</span>
                     </h1>
-                    <p class="text-xs text-gray-500 font-medium">Geumchon Career Hub</p>
+                    <p class="text-xs text-gray-500 font-medium">Geumchon Career Hub (GitHub Pages)</p>
                 </div>
             </div>
 
@@ -608,7 +613,7 @@
         </div>
     </div>
 
-    <!-- Application Script Logic -->
+    <!-- Application Script Logic (GitHub Pages Standalone) -->
     <script>
         // System Constants & Local Data State
         const TIME_SLOTS = [
@@ -638,10 +643,10 @@
         let tempCustomBlockedSlots = [];
         let hasUnsavedChanges = false;
 
-        // Polling Timer ID Reference
+        // Polling Timer ID Reference (3초 간격)
         let autoPollingTimer = null;
 
-        // BroadcastChannel 및 실시간 이벤트 채널 설정
+        // BroadcastChannel 및 실시간 이벤트 채널 설정 (동일 브라우저 탭/창 간 즉시 동기화)
         let syncChannel;
         if (typeof BroadcastChannel !== 'undefined') {
             syncChannel = new BroadcastChannel('geumchon_blocked_state_channel');
@@ -652,7 +657,7 @@
             };
         }
 
-        // storage 이벤트를 통한 브라우저 탭 및 다른 모바일 창 간 실시간 변경 감지
+        // storage 이벤트를 통한 모바일 브라우저 탭/창 간 변경 실시간 감지
         window.addEventListener('storage', function(e) {
             if (e.key === 'geumchon_blocked_weeks' || e.key === 'geumchon_custom_blocked_slots' || e.key === 'geumchon_reservations' || e.key === 'geumchon_period_reservations' || e.key === 'geumchon_last_sync') {
                 onBlockedStateChanged();
@@ -660,44 +665,39 @@
         });
 
         // ==========================================
-        // 모바일 캐시 무효화 및 실시간 동기화 (Google Apps Script / Local Storage 호환)
+        // GitHub Pages 전용 Fetch Cache-Busting & 데이터 로드 로직
         // ==========================================
 
-        // API 요청 및 상태 로딩 시 강력한 캐시 방지(Cache Busting / Date.now() 타임스탬프) 적용
-        function fetchLatestStateWithCacheBusting(callback) {
+        // 외부 JSON 서버나 데이터 엔드포인트 연동이 필요한 경우 사용할 수 있는 캐시 무효화 fetch 래퍼
+        async function fetchWithCacheBusting(url, options = {}) {
             const timestamp = Date.now();
-            
-            // 1. Google Apps Script 백엔드 환경 연동 시
-            if (typeof google !== 'undefined' && google.script && google.script.run) {
-                google.script.run
-                    .withSuccessHandler((data) => {
-                        if (data) {
-                            if (data.blockedWeeks) blockedWeeks = data.blockedWeeks;
-                            if (data.customBlockedSlots) customBlockedSlots = data.customBlockedSlots;
-                            if (data.reservations) reservations = data.reservations;
-                            if (data.periodReservations) periodReservations = data.periodReservations;
-                        }
-                        if (!isAdminLoggedIn) {
-                            tempBlockedWeeks = JSON.parse(JSON.stringify(blockedWeeks));
-                            tempCustomBlockedSlots = JSON.parse(JSON.stringify(customBlockedSlots));
-                        }
-                        if (callback) callback();
-                    })
-                    .withFailureHandler((err) => {
-                        console.warn('GAS 백엔드 요청 실패, 로컬 데이터로 대체합니다.', err);
-                        loadFromLocalStorage();
-                        if (callback) callback();
-                    })
-                    .getScheduleData(timestamp); // 서버에 타임스탬프를 전달하여 모바일 브라우저 예전 캐시 반환 차단
-            } else {
-                // 2. 브라우저/로컬 환경 연동 시
-                loadFromLocalStorage();
-                if (callback) callback();
+            const delimiter = url.includes('?') ? '&' : '?';
+            const cacheBustedUrl = `${url}${delimiter}t=${timestamp}`;
+
+            const fetchOptions = {
+                ...options,
+                cache: 'no-store', // 모바일 브라우저 캐시 무력화
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
+                    ...(options.headers || {})
+                }
+            };
+
+            try {
+                const response = await fetch(cacheBustedUrl, fetchOptions);
+                return await response.json();
+            } catch (err) {
+                console.warn('Fetch request error, falling back to LocalStorage:', err);
+                return null;
             }
         }
 
-        function loadFromLocalStorage() {
+        // 최신 마감 및 예약 데이터 갱신 (Fetch + LocalStorage 하이브리드)
+        function fetchLatestStateWithCacheBusting(callback) {
             try {
+                // LocalStorage 데이터 읽기
                 const savedWeeks = localStorage.getItem('geumchon_blocked_weeks');
                 const savedSlots = localStorage.getItem('geumchon_custom_blocked_slots');
                 const savedReservations = localStorage.getItem('geumchon_reservations');
@@ -713,13 +713,15 @@
                     tempCustomBlockedSlots = JSON.parse(JSON.stringify(customBlockedSlots));
                 }
             } catch (e) {
-                console.error('Failed to parse local storage data:', e);
+                console.error('Failed to parse storage data:', e);
             }
+
+            if (callback) callback();
         }
 
-        // 3초~5초 주기적 자동 갱신 (Polling) 설정 (기본 4000ms = 4초)
-        function startAutoPolling(intervalMs = 4000) {
-            stopAutoPolling(); // 기존 중복 타이머 방지
+        // 3초 주기적 자동 갱신 (Polling) 설정 (3000ms = 3초)
+        function startAutoPolling(intervalMs = 3000) {
+            stopAutoPolling(); // 중복 타이머 제거
             autoPollingTimer = setInterval(() => {
                 refetchMobileCalendarData();
             }, intervalMs);
@@ -732,14 +734,13 @@
             }
         }
 
-        // 모바일 탭 상태 감지 (visibilitychange 및 focus 이벤트)
-        // 학생이 스마트폰 화면을 껐다 켜거나 다른 앱 다녀왔을 때 즉시 최신 데이터 재조회
+        // 모바일 포그라운드 복귀 및 화면 켬 감지 (visibilitychange & focus)
         document.addEventListener('visibilitychange', function() {
             if (document.visibilityState === 'visible') {
                 refetchMobileCalendarData();
-                startAutoPolling(4000); // 포그라운드 복귀 시 주기적 갱신 재개
+                startAutoPolling(3000); // 포그라운드 복귀 시 3초 타이머 다시 시작
             } else {
-                stopAutoPolling(); // 백그라운드 전환 시 배터리 및 네트워크 자원 절약을 위해 멈춤
+                stopAutoPolling(); // 백그라운드 전환 시 자원 절약을 위해 타이머 일시 정지
             }
         });
 
@@ -747,10 +748,9 @@
             refetchMobileCalendarData();
         });
 
-        // 모바일 환경 실시간 데이터 자동 재조회(Auto Refetch) 및 UI 갱신 함수
+        // 모바일 환경 실시간 데이터 자동 재조회 및 달력 UI 갱신 함수
         function refetchMobileCalendarData() {
             fetchLatestStateWithCacheBusting(() => {
-                // 현재 활성화된 탭이 학생 상담 신청 화면인 경우
                 const applyTab = document.getElementById('tab-apply');
                 if (applyTab && !applyTab.classList.contains('hidden')) {
                     renderDatePickerCalendar();
@@ -759,7 +759,6 @@
                     }
                 }
 
-                // 교사 관리자 화면인 경우
                 if (isAdminLoggedIn) {
                     renderBlockedWeeksTags();
                     renderBlockedSlotsTags();
@@ -767,7 +766,6 @@
                     renderAdminReservationList();
                 }
 
-                // 내 예약 조회 화면인 경우
                 const activeStatusTab = document.getElementById('tab-status');
                 if (activeStatusTab && !activeStatusTab.classList.contains('hidden')) {
                     searchMyReservations();
@@ -804,23 +802,14 @@
             }
         }
 
-        // [설정 저장] 버튼을 누를 때 호출 - 임시 데이터(Staging)를 최종 적용 및 저장
+        // [설정 저장] 버튼을 누를 때 호출 - 교사 모드 마감 변경사항 저장
         function commitBlockedState() {
             blockedWeeks = JSON.parse(JSON.stringify(tempBlockedWeeks));
             customBlockedSlots = JSON.parse(JSON.stringify(tempCustomBlockedSlots));
             
-            // LocalStorage 및 Google Apps Script 백엔드 저장
             localStorage.setItem('geumchon_blocked_weeks', JSON.stringify(blockedWeeks));
             localStorage.setItem('geumchon_custom_blocked_slots', JSON.stringify(customBlockedSlots));
             localStorage.setItem('geumchon_last_sync', Date.now().toString());
-
-            if (typeof google !== 'undefined' && google.script && google.script.run) {
-                google.script.run.saveScheduleData({
-                    blockedWeeks: blockedWeeks,
-                    customBlockedSlots: customBlockedSlots,
-                    timestamp: Date.now()
-                });
-            }
             
             hasUnsavedChanges = false;
             updateUnsavedBadge();
@@ -838,14 +827,6 @@
             localStorage.setItem('geumchon_reservations', JSON.stringify(reservations));
             localStorage.setItem('geumchon_period_reservations', JSON.stringify(periodReservations));
             localStorage.setItem('geumchon_last_sync', Date.now().toString());
-
-            if (typeof google !== 'undefined' && google.script && google.script.run) {
-                google.script.run.saveReservationsData({
-                    reservations: reservations,
-                    periodReservations: periodReservations,
-                    timestamp: Date.now()
-                });
-            }
 
             if (syncChannel) {
                 syncChannel.postMessage({ type: 'RESERVATIONS_UPDATED', timestamp: Date.now() });
@@ -1253,10 +1234,9 @@
             const firstDayObj = new Date(pickerYear, pickerMonth, 1);
             let firstDay = firstDayObj.getDay(); // 0: Sun, 1: Mon, ... 6: Sat
             
-            // Adjust offset for 5-day Mon-Fri calendar (0: Mon, 1: Tue, 2: Wed, 3: Thu, 4: Fri)
             let offset = 0;
-            if (firstDay === 0) offset = 0; // Sunday defaults to 0 offset on Monday start
-            else if (firstDay === 6) offset = 0; // Saturday defaults to 0 offset on Monday start
+            if (firstDay === 0) offset = 0;
+            else if (firstDay === 6) offset = 0;
             else offset = firstDay - 1;
 
             const daysInMonth = new Date(pickerYear, pickerMonth + 1, 0).getDate();
@@ -1279,7 +1259,6 @@
                 const dateObj = new Date(pickerYear, pickerMonth, day);
                 const dayOfWeek = dateObj.getDay();
 
-                // Skip Saturday (6) and Sunday (0)
                 if (dayOfWeek === 0 || dayOfWeek === 6) continue;
 
                 const dateStr = `${pickerYear}-${String(pickerMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -1427,7 +1406,7 @@
                 return;
             }
 
-            // 신청 전 최종 최신 마감 데이터 검증 (동시 신청 방지)
+            // 신청 직전 최신 마감 데이터 재검증 (동시 신청 방지)
             fetchLatestStateWithCacheBusting(() => {
                 const isBlockedWeek = isDateInBlockedWeek(date, false);
                 const isCustomBlocked = isCustomBlockedSlot(date, timeSlot, false);
@@ -1878,7 +1857,6 @@
             const firstDayObj = new Date(adminYear, adminMonth, 1);
             let firstDay = firstDayObj.getDay();
             
-            // Adjust offset for 5-day Mon-Fri calendar (0: Mon, 1: Tue, 2: Wed, 3: Thu, 4: Fri)
             let offset = 0;
             if (firstDay === 0) offset = 0;
             else if (firstDay === 6) offset = 0;
@@ -1895,7 +1873,6 @@
                 const dateObj = new Date(adminYear, adminMonth, day);
                 const dayOfWeek = dateObj.getDay();
 
-                // Skip Saturday (6) and Sunday (0)
                 if (dayOfWeek === 0 || dayOfWeek === 6) continue;
 
                 const dateStr = `${adminYear}-${String(adminMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -2071,22 +2048,21 @@
             document.body.removeChild(link);
         }
 
-        // 페이지 초기화 및 4초 주기 자동 갱신(Polling) 타이머 실행
+        // GitHub Pages 로드 완료 후 초기 동기화 및 3초 주기 자동 갱신 (Polling) 실행
         window.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('admin') === 'true') {
                 requestAdminAuth();
             }
             
-            // 초기 데이터 수신 및 달력 그리기
             fetchLatestStateWithCacheBusting(() => {
                 updateWeekSelectOptions();
                 renderDatePickerCalendar();
                 updateBadgeCount();
             });
 
-            // 4초마다 백엔드/스토리지의 최신 마감 데이터 자동 Polling 시작
-            startAutoPolling(4000);
+            // 3초마다 모바일/브라우저 최신 상태 자동 Polling 시작
+            startAutoPolling(3000);
         });
     </script>
 </body>
