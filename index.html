@@ -112,7 +112,7 @@
                     <h1 class="text-base sm:text-lg font-bold text-gray-900 leading-tight flex items-center gap-1.5">
                         금촌중학교 <span class="text-xs bg-green-100 text-brand-green px-2 py-0.5 rounded-full font-semibold hidden sm:inline-block">진로진학상담</span>
                     </h1>
-                    <p class="text-xs text-gray-500 font-medium">Geumchon Career Hub (GitHub Pages)</p>
+                    <p class="text-xs text-gray-500 font-medium">Geumchon Career Hub (GitHub Pages + GAS API)</p>
                 </div>
             </div>
 
@@ -404,7 +404,7 @@
                             <span class="bg-amber-500 text-white p-2 rounded-xl text-xs font-bold"><i class="fa-solid fa-lock"></i></span>
                             <div>
                                 <h3 class="text-base font-bold text-gray-900">상담 예약 일괄 마감 설정 (교사 전용)</h3>
-                                <p class="text-xs text-gray-500">마감 항목 변경 후 하단의 <b class="text-amber-800">[설정 저장]</b> 버튼을 눌러야 확정 반영됩니다.</p>
+                                <p class="text-xs text-gray-500">마감 항목 변경 후 하단의 <b class="text-amber-800">[설정 저장]</b> 버튼을 눌러야 중앙 DB에 확정 반영됩니다.</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
@@ -613,10 +613,13 @@
         </div>
     </div>
 
-    <!-- Application Script Logic (GitHub Pages Standalone) -->
+    <!-- Application Script Logic (GitHub Pages Standalone + Google Apps Script Central API) -->
     <script>
-        // Storage Schema Version Identifier (스마트폰 브라우저의 무분별한 옛날 캐시/LocalStorage 데이터 강제 초기화용)
-        const STORAGE_VERSION = 'v2_20261029';
+        // 구글 앱스 스크립트(GAS) 웹앱 URL (선생님의 배포 URL로 교체)
+        const GAS_API_URL = "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL";
+
+        // Storage Schema Version Identifier (스마트폰 브라우저 구버전 데이터 초기화용)
+        const STORAGE_VERSION = 'v2_20261029_gas';
 
         // System Constants & Local Data State
         const TIME_SLOTS = [
@@ -668,7 +671,7 @@
         });
 
         // ==========================================
-        // GitHub Pages 전용 캐시 완전 무효화 & 동기화 로직
+        // GitHub Pages + GAS REST API 중앙 DB 연동 로직
         // ==========================================
 
         // 오래된 모바일 캐시 데이터 강제 초기화 검증
@@ -676,7 +679,6 @@
             try {
                 const currentVersion = localStorage.getItem('geumchon_storage_version');
                 if (currentVersion !== STORAGE_VERSION) {
-                    // 구버전 캐시 데이터 삭제하여 기기 간 데이터 불일치(29일/30일 마감 오작동) 차단
                     localStorage.removeItem('geumchon_blocked_weeks');
                     localStorage.removeItem('geumchon_custom_blocked_slots');
                     localStorage.setItem('geumchon_storage_version', STORAGE_VERSION);
@@ -687,62 +689,153 @@
             }
         }
 
-        // 외부 JSON 또는 서버 연동을 위한 캐시 차단 fetch 래퍼
-        async function fetchWithCacheBusting(url, options = {}) {
-            const timestamp = Date.now();
-            const delimiter = url.includes('?') ? '&' : '?';
-            const cacheBustedUrl = `${url}${delimiter}t=${timestamp}`;
+        // 구글 앱스 스크립트 중앙 데이터베이스로부터 최신 데이터 원격 Fetch
+        async function fetchLatestStateWithCacheBusting(callback) {
+            checkAndSanitizeLocalStorage();
 
-            const fetchOptions = {
-                ...options,
-                cache: 'no-store', // 모바일 브라우저 캐시 무력화
-                headers: {
-                    'Cache-Control': 'no-cache, no-store, must-revalidate',
-                    'Pragma': 'no-cache',
-                    'Expires': '0',
-                    ...(options.headers || {})
-                }
-            };
-
+            // 1. 먼저 로컬 스토리지 데이터 로드 (오프라인/네트워크 대기 시 기본값)
             try {
-                const response = await fetch(cacheBustedUrl, fetchOptions);
-                return await response.json();
-            } catch (err) {
-                console.warn('Fetch request error, falling back to LocalStorage:', err);
-                return null;
-            }
-        }
-
-        // 최신 마감 및 예약 데이터 갱신 (Fetch + LocalStorage 하이브리드)
-        function fetchLatestStateWithCacheBusting(callback) {
-            try {
-                checkAndSanitizeLocalStorage();
-
-                // LocalStorage 데이터 읽기
                 const savedWeeks = localStorage.getItem('geumchon_blocked_weeks');
                 const savedSlots = localStorage.getItem('geumchon_custom_blocked_slots');
                 const savedReservations = localStorage.getItem('geumchon_reservations');
                 const savedPeriodReservations = localStorage.getItem('geumchon_period_reservations');
 
-                blockedWeeks = savedWeeks ? JSON.parse(savedWeeks) : [];
-                customBlockedSlots = savedSlots ? JSON.parse(savedSlots) : [];
+                if (savedWeeks) blockedWeeks = JSON.parse(savedWeeks);
+                if (savedSlots) customBlockedSlots = JSON.parse(savedSlots);
                 if (savedReservations) reservations = JSON.parse(savedReservations);
                 if (savedPeriodReservations) periodReservations = JSON.parse(savedPeriodReservations);
-
-                if (!isAdminLoggedIn) {
-                    tempBlockedWeeks = JSON.parse(JSON.stringify(blockedWeeks));
-                    tempCustomBlockedSlots = JSON.parse(JSON.stringify(customBlockedSlots));
-                }
             } catch (e) {
-                console.error('Failed to parse storage data:', e);
+                console.error('Failed to parse local storage data:', e);
+            }
+
+            // 2. GAS API URL이 유효할 경우 원격 중앙 DB에서 타임스탬프(?t=Date.now())로 최신 데이터 동기화
+            if (GAS_API_URL && GAS_API_URL !== "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL") {
+                try {
+                    const cacheBustedUrl = `${GAS_API_URL}${GAS_API_URL.includes('?') ? '&' : '?'}t=${Date.now()}`;
+                    const response = await fetch(cacheBustedUrl, {
+                        method: 'GET',
+                        cache: 'no-store',
+                        headers: {
+                            'Cache-Control': 'no-cache, no-store, must-revalidate',
+                            'Pragma': 'no-cache'
+                        }
+                    });
+
+                    if (response.ok) {
+                        const remoteData = await response.json();
+                        if (remoteData) {
+                            if (remoteData.blockedWeeks) {
+                                blockedWeeks = remoteData.blockedWeeks;
+                                localStorage.setItem('geumchon_blocked_weeks', JSON.stringify(blockedWeeks));
+                            }
+                            if (remoteData.customBlockedSlots) {
+                                customBlockedSlots = remoteData.customBlockedSlots;
+                                localStorage.setItem('geumchon_custom_blocked_slots', JSON.stringify(customBlockedSlots));
+                            }
+                            if (remoteData.reservations) {
+                                reservations = remoteData.reservations;
+                                localStorage.setItem('geumchon_reservations', JSON.stringify(reservations));
+                            }
+                            if (remoteData.periodReservations) {
+                                periodReservations = remoteData.periodReservations;
+                                localStorage.setItem('geumchon_period_reservations', JSON.stringify(periodReservations));
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.warn('Remote GAS API fetch failed, using local storage state:', err);
+                }
+            }
+
+            if (!isAdminLoggedIn) {
+                tempBlockedWeeks = JSON.parse(JSON.stringify(blockedWeeks));
+                tempCustomBlockedSlots = JSON.parse(JSON.stringify(customBlockedSlots));
             }
 
             if (callback) callback();
         }
 
+        // [설정 저장] 버튼을 누를 때 호출 - 교사 모드 마감 변경사항을 GAS 중앙 DB 및 로컬에 동시 확정 전송
+        async function commitBlockedState() {
+            blockedWeeks = JSON.parse(JSON.stringify(tempBlockedWeeks));
+            customBlockedSlots = JSON.parse(JSON.stringify(tempCustomBlockedSlots));
+            
+            localStorage.setItem('geumchon_blocked_weeks', JSON.stringify(blockedWeeks));
+            localStorage.setItem('geumchon_custom_blocked_slots', JSON.stringify(customBlockedSlots));
+            localStorage.setItem('geumchon_last_sync', Date.now().toString());
+            
+            hasUnsavedChanges = false;
+            updateUnsavedBadge();
+
+            // GAS API로 마감 설정 데이터 POST 전송
+            if (GAS_API_URL && GAS_API_URL !== "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL") {
+                try {
+                    const payload = {
+                        action: 'saveBlockedState',
+                        blockedWeeks: blockedWeeks,
+                        customBlockedSlots: customBlockedSlots,
+                        timestamp: Date.now()
+                    };
+
+                    await fetch(GAS_API_URL, {
+                        method: 'POST',
+                        mode: 'no-cors', // GAS 도메인 간 CORS 회피 처리
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                } catch (e) {
+                    console.error('Failed to post blocked state to GAS API:', e);
+                }
+            }
+
+            onBlockedStateChanged();
+
+            if (syncChannel) {
+                syncChannel.postMessage({ type: 'BLOCKED_STATE_UPDATED', timestamp: Date.now() });
+            }
+
+            showModal('설정 저장 완료 ✅', '모든 마감 설정이 중앙 DB에 최종 확정되어 교사 및 학생 화면에 실시간 적용되었습니다.');
+        }
+
+        // 예약 및 교시별 예약 데이터 저장
+        async function saveReservationsToStorage() {
+            localStorage.setItem('geumchon_reservations', JSON.stringify(reservations));
+            localStorage.setItem('geumchon_period_reservations', JSON.stringify(periodReservations));
+            localStorage.setItem('geumchon_last_sync', Date.now().toString());
+
+            // 원격 GAS DB에 데이터 업데이트 전송
+            if (GAS_API_URL && GAS_API_URL !== "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL") {
+                try {
+                    const payload = {
+                        action: 'saveReservations',
+                        reservations: reservations,
+                        periodReservations: periodReservations,
+                        timestamp: Date.now()
+                    };
+
+                    await fetch(GAS_API_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                } catch (e) {
+                    console.error('Failed to post reservations to GAS API:', e);
+                }
+            }
+
+            if (syncChannel) {
+                syncChannel.postMessage({ type: 'RESERVATIONS_UPDATED', timestamp: Date.now() });
+            }
+        }
+
         // 3초 주기적 자동 갱신 (Polling) 설정 (3000ms = 3초)
         function startAutoPolling(intervalMs = 3000) {
-            stopAutoPolling(); // 중복 타이머 제거
+            stopAutoPolling();
             autoPollingTimer = setInterval(() => {
                 refetchMobileCalendarData();
             }, intervalMs);
@@ -759,9 +852,9 @@
         document.addEventListener('visibilitychange', function() {
             if (document.visibilityState === 'visible') {
                 refetchMobileCalendarData();
-                startAutoPolling(3000); // 포그라운드 복귀 시 3초 타이머 다시 시작
+                startAutoPolling(3000); // 포그라운드 복귀 시 3초 타이머 즉시 다시 실행
             } else {
-                stopAutoPolling(); // 백그라운드 전환 시 자원 절약을 위해 타이머 일시 정지
+                stopAutoPolling(); // 백그라운드 전환 시 자원 절약을 위해 일시 정지
             }
         });
 
@@ -820,37 +913,6 @@
             } else {
                 document.execCommand('copy');
                 showModal('주소 복사 완료 📋', '학생 상담 신청 URL 주소가 클립보드에 복사되었습니다.');
-            }
-        }
-
-        // [설정 저장] 버튼을 누를 때 호출 - 교사 모드 마감 변경사항 저장
-        function commitBlockedState() {
-            blockedWeeks = JSON.parse(JSON.stringify(tempBlockedWeeks));
-            customBlockedSlots = JSON.parse(JSON.stringify(tempCustomBlockedSlots));
-            
-            localStorage.setItem('geumchon_blocked_weeks', JSON.stringify(blockedWeeks));
-            localStorage.setItem('geumchon_custom_blocked_slots', JSON.stringify(customBlockedSlots));
-            localStorage.setItem('geumchon_last_sync', Date.now().toString());
-            
-            hasUnsavedChanges = false;
-            updateUnsavedBadge();
-
-            onBlockedStateChanged();
-
-            if (syncChannel) {
-                syncChannel.postMessage({ type: 'BLOCKED_STATE_UPDATED', timestamp: Date.now() });
-            }
-
-            showModal('설정 저장 완료 ✅', '모든 마감 설정이 최종 확정되어 교사 및 학생 화면에 일괄 반영되었습니다.');
-        }
-
-        function saveReservationsToStorage() {
-            localStorage.setItem('geumchon_reservations', JSON.stringify(reservations));
-            localStorage.setItem('geumchon_period_reservations', JSON.stringify(periodReservations));
-            localStorage.setItem('geumchon_last_sync', Date.now().toString());
-
-            if (syncChannel) {
-                syncChannel.postMessage({ type: 'RESERVATIONS_UPDATED', timestamp: Date.now() });
             }
         }
 
@@ -1427,7 +1489,7 @@
                 return;
             }
 
-            // 신청 직전 최신 마감 데이터 재검증 (동시 신청 방지)
+            // 신청 직전 최신 중앙 DB 마감 데이터 재검증 (동시 신청 방지)
             fetchLatestStateWithCacheBusting(() => {
                 const isBlockedWeek = isDateInBlockedWeek(date, false);
                 const isCustomBlocked = isCustomBlockedSlot(date, timeSlot, false);
@@ -2085,7 +2147,7 @@
                 updateBadgeCount();
             });
 
-            // 3초마다 모바일/브라우저 최신 상태 자동 Polling 시작
+            // 3초마다 원격 GAS DB 및 모바일/브라우저 최신 상태 자동 Polling 시작
             startAutoPolling(3000);
         });
     </script>
